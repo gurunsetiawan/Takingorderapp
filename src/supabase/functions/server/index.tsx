@@ -180,4 +180,95 @@ app.post("/make-server-a0489752/signup", async (c) => {
   }
 });
 
+// ============ SALESMAN ENDPOINTS ============
+
+// Get all salesmen
+app.get("/make-server-a0489752/salesmen", async (c) => {
+  try {
+    const salesmen = await kv.get("salesmen");
+    return c.json({ salesmen: salesmen || [] });
+  } catch (error) {
+    console.log(`Error fetching salesmen: ${error}`);
+    return c.json({ error: "Failed to fetch salesmen", details: String(error) }, 500);
+  }
+});
+
+// Add a salesman
+app.post("/make-server-a0489752/salesmen", async (c) => {
+  try {
+    const salesman = await c.req.json();
+    
+    let salesmen = await kv.get("salesmen");
+    if (!salesmen || !Array.isArray(salesmen)) {
+      salesmen = [];
+    }
+
+    // Check if code already exists
+    const existingCode = salesmen.find((s: any) => s.code === salesman.code);
+    if (existingCode) {
+      return c.json({ error: "Kode salesman sudah ada" }, 400);
+    }
+
+    salesmen.push(salesman);
+    await kv.set("salesmen", salesmen);
+
+    return c.json({ message: "Salesman added successfully", salesman });
+  } catch (error) {
+    console.log(`Error adding salesman: ${error}`);
+    return c.json({ error: "Failed to add salesman", details: String(error) }, 500);
+  }
+});
+
+// Update a salesman
+app.put("/make-server-a0489752/salesmen/:id", async (c) => {
+  try {
+    const salesmanId = c.req.param("id");
+    const updatedSalesman = await c.req.json();
+
+    let salesmen = await kv.get("salesmen");
+    if (!salesmen || !Array.isArray(salesmen)) {
+      return c.json({ error: "Salesmen not found" }, 404);
+    }
+
+    // Check if code already exists (excluding current salesman)
+    const existingCode = salesmen.find((s: any) => s.code === updatedSalesman.code && s.id !== salesmanId);
+    if (existingCode) {
+      return c.json({ error: "Kode salesman sudah ada" }, 400);
+    }
+
+    const updatedSalesmen = salesmen.map((s: any) => {
+      if (s.id === salesmanId) {
+        return { ...s, ...updatedSalesman };
+      }
+      return s;
+    });
+
+    await kv.set("salesmen", updatedSalesmen);
+    return c.json({ message: "Salesman updated successfully", salesmen: updatedSalesmen });
+  } catch (error) {
+    console.log(`Error updating salesman: ${error}`);
+    return c.json({ error: "Failed to update salesman", details: String(error) }, 500);
+  }
+});
+
+// Delete a salesman
+app.delete("/make-server-a0489752/salesmen/:id", async (c) => {
+  try {
+    const salesmanId = c.req.param("id");
+
+    let salesmen = await kv.get("salesmen");
+    if (!salesmen || !Array.isArray(salesmen)) {
+      return c.json({ error: "Salesmen not found" }, 404);
+    }
+
+    const updatedSalesmen = salesmen.filter((s: any) => s.id !== salesmanId);
+    await kv.set("salesmen", updatedSalesmen);
+
+    return c.json({ message: "Salesman deleted successfully", salesmen: updatedSalesmen });
+  } catch (error) {
+    console.log(`Error deleting salesman: ${error}`);
+    return c.json({ error: "Failed to delete salesman", details: String(error) }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

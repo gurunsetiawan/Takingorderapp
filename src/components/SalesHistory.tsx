@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { Sale } from '../App';
-import { ChevronDown, ChevronUp, Calendar, User, DollarSign } from 'lucide-react';
+import { ChevronDown, ChevronUp, Calendar, User, DollarSign, Filter } from 'lucide-react';
 
 interface SalesHistoryProps {
   sales: Sale[];
+  salesmen: Array<{ id: string; name: string }>;
 }
 
-export function SalesHistory({ sales }: SalesHistoryProps) {
+export function SalesHistory({ sales, salesmen }: SalesHistoryProps) {
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [selectedSalesman, setSelectedSalesman] = useState('');
 
   const toggleExpand = (saleId: string) => {
     setExpandedSaleId(expandedSaleId === saleId ? null : saleId);
@@ -24,10 +28,44 @@ export function SalesHistory({ sales }: SalesHistoryProps) {
     });
   };
 
-  const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-  const totalItems = sales.reduce((sum, sale) => 
+  const formatDateOnly = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  // Filter sales based on date range and salesman
+  const filteredSales = sales.filter(sale => {
+    const saleDate = new Date(sale.date);
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    // Check date range
+    if (start && saleDate < start) return false;
+    if (end) {
+      end.setHours(23, 59, 59, 999);
+      if (saleDate > end) return false;
+    }
+
+    // Check salesman filter
+    if (selectedSalesman && sale.salesmanId !== selectedSalesman) return false;
+
+    return true;
+  });
+
+  const totalRevenue = filteredSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+  const totalItems = filteredSales.reduce((sum, sale) => 
     sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0
   );
+
+  const handleClearFilters = () => {
+    setStartDate('');
+    setEndDate('');
+    setSelectedSalesman('');
+  };
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -40,7 +78,7 @@ export function SalesHistory({ sales }: SalesHistoryProps) {
             </div>
             <span className="text-gray-600">Total Transaksi</span>
           </div>
-          <p className="text-2xl">{sales.length}</p>
+          <p className="text-2xl">{filteredSales.length}</p>
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6">
@@ -68,13 +106,50 @@ export function SalesHistory({ sales }: SalesHistoryProps) {
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl mb-6">Riwayat Penjualan</h2>
 
-        {sales.length === 0 ? (
+        {/* Filters */}
+        <div className="grid md:grid-cols-3 gap-4 mb-6">
+          <div>
+            <label className="block text-gray-700 mb-2">Tanggal Mulai</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 mb-2">Tanggal Akhir</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 mb-2">Salesman</label>
+            <select
+              value={selectedSalesman}
+              onChange={(e) => setSelectedSalesman(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Semua Salesman</option>
+              {salesmen && salesmen.length > 0 && salesmen.map(salesman => (
+                <option key={salesman.id} value={salesman.id}>
+                  {salesman.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {filteredSales.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <p>Belum ada data penjualan</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {sales.map(sale => (
+            {filteredSales.map(sale => (
               <div key={sale.id} className="border rounded-lg overflow-hidden">
                 <div
                   onClick={() => toggleExpand(sale.id)}

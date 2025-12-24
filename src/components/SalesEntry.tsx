@@ -1,19 +1,40 @@
 import { useState } from 'react';
 import { Product, Sale, SaleItem } from '../App';
-import { Plus, Trash2, Save, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, Search } from 'lucide-react';
+import type { Salesman } from './SalesmanList';
 
 interface SalesEntryProps {
   products: Product[];
+  salesmen: Salesman[];
   onSaleSubmit: (sale: Sale) => Promise<boolean>;
 }
 
-export function SalesEntry({ products, onSaleSubmit }: SalesEntryProps) {
+export function SalesEntry({ products, salesmen, onSaleSubmit }: SalesEntryProps) {
   const [salesmanName, setSalesmanName] = useState('');
+  const [salesmanId, setSalesmanId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState('');
   const [items, setItems] = useState<SaleItem[]>([]);
   const [saving, setSaving] = useState(false);
+  const [salesmanSearch, setSalesmanSearch] = useState('');
+  const [showSalesmanDropdown, setShowSalesmanDropdown] = useState(false);
+
+  // Filter active salesmen
+  const activeSalesmen = salesmen.filter(s => s.status === 'active');
+
+  // Filter salesmen based on search
+  const filteredSalesmen = activeSalesmen.filter(s =>
+    s.name.toLowerCase().includes(salesmanSearch.toLowerCase()) ||
+    s.code.toLowerCase().includes(salesmanSearch.toLowerCase())
+  );
+
+  const handleSalesmanSelect = (salesman: Salesman) => {
+    setSalesmanName(salesman.name);
+    setSalesmanId(salesman.id);
+    setSalesmanSearch(salesman.name);
+    setShowSalesmanDropdown(false);
+  };
 
   const handleAddItem = () => {
     if (!selectedProductId || !quantity || parseInt(quantity) <= 0) {
@@ -84,6 +105,7 @@ export function SalesEntry({ products, onSaleSubmit }: SalesEntryProps) {
     const sale: Sale = {
       id: Date.now().toString(),
       salesmanName,
+      salesmanId,
       customerName,
       date: new Date().toISOString(),
       items,
@@ -97,6 +119,7 @@ export function SalesEntry({ products, onSaleSubmit }: SalesEntryProps) {
     if (success) {
       // Reset form
       setSalesmanName('');
+      setSalesmanId('');
       setCustomerName('');
       setItems([]);
       
@@ -115,13 +138,38 @@ export function SalesEntry({ products, onSaleSubmit }: SalesEntryProps) {
         <div className="grid md:grid-cols-2 gap-4 mb-6">
           <div>
             <label className="block text-gray-700 mb-2">Nama Salesman</label>
-            <input
-              type="text"
-              value={salesmanName}
-              onChange={(e) => setSalesmanName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Masukkan nama salesman"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={salesmanSearch}
+                onChange={(e) => {
+                  setSalesmanSearch(e.target.value);
+                  setSalesmanName(e.target.value);
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder={activeSalesmen.length > 0 ? "Pilih atau ketik nama salesman" : "Masukkan nama salesman"}
+                onFocus={() => activeSalesmen.length > 0 && setShowSalesmanDropdown(true)}
+                onBlur={() => setTimeout(() => setShowSalesmanDropdown(false), 200)}
+              />
+              {showSalesmanDropdown && filteredSalesmen.length > 0 && (
+                <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-b-lg shadow-md max-h-40 overflow-y-auto">
+                  {filteredSalesmen.map(salesman => (
+                    <div
+                      key={salesman.id}
+                      className="px-4 py-2 cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleSalesmanSelect(salesman)}
+                    >
+                      {salesman.code} - {salesman.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {activeSalesmen.length === 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                Belum ada data salesman. Tambahkan di menu Daftar Salesman.
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-gray-700 mb-2">Nama Customer</label>

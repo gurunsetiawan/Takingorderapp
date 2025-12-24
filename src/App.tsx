@@ -3,7 +3,9 @@ import { ProductList } from './components/ProductList';
 import { SalesEntry } from './components/SalesEntry';
 import { SalesHistory } from './components/SalesHistory';
 import { Login } from './components/Login';
-import { Package, ShoppingCart, History, Loader2, LogOut } from 'lucide-react';
+import { SalesmanList } from './components/SalesmanList';
+import type { Salesman } from './components/SalesmanList';
+import { Package, ShoppingCart, History, Loader2, LogOut, Users } from 'lucide-react';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 import { createClient } from '@supabase/supabase-js';
 
@@ -35,6 +37,7 @@ export interface SaleItem {
 export interface Sale {
   id: string;
   salesmanName: string;
+  salesmanId: string;
   customerName: string;
   date: string;
   items: SaleItem[];
@@ -53,9 +56,10 @@ const initialProducts: Product[] = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'entry' | 'products' | 'history'>('entry');
+  const [activeTab, setActiveTab] = useState<'entry' | 'products' | 'history' | 'salesmen'>('entry');
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [salesmen, setSalesmen] = useState<Salesman[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -195,6 +199,26 @@ export default function App() {
       const salesData = await salesRes.json();
       setSales(salesData.sales || []);
 
+      // Load salesmen (optional - don't fail if it doesn't exist yet)
+      try {
+        const salesmenRes = await fetch(`${API_URL}/salesmen`, {
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`
+          }
+        });
+        
+        if (salesmenRes.ok) {
+          const salesmenData = await salesmenRes.json();
+          setSalesmen(salesmenData.salesmen || []);
+        } else {
+          console.log('Salesmen endpoint not available yet');
+          setSalesmen([]);
+        }
+      } catch (salesmenErr) {
+        console.log('Salesmen feature not available:', salesmenErr);
+        setSalesmen([]);
+      }
+
     } catch (err) {
       console.error('Error loading data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -226,6 +250,92 @@ export default function App() {
     } catch (err) {
       console.error('Error saving sale:', err);
       alert(err instanceof Error ? err.message : 'Failed to save sale');
+      return false;
+    }
+  };
+
+  // Salesman CRUD handlers
+  const handleAddSalesman = async (salesman: Omit<Salesman, 'id'>): Promise<boolean> => {
+    try {
+      const newSalesman = {
+        id: Date.now().toString(),
+        ...salesman
+      };
+
+      const response = await fetch(`${API_URL}/salesmen`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newSalesman)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || 'Gagal menambah salesman');
+        return false;
+      }
+
+      await loadData();
+      alert('Salesman berhasil ditambahkan');
+      return true;
+    } catch (err) {
+      console.error('Error adding salesman:', err);
+      alert('Gagal menambah salesman');
+      return false;
+    }
+  };
+
+  const handleUpdateSalesman = async (id: string, salesman: Omit<Salesman, 'id'>): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_URL}/salesmen/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(salesman)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || 'Gagal mengupdate salesman');
+        return false;
+      }
+
+      await loadData();
+      alert('Salesman berhasil diupdate');
+      return true;
+    } catch (err) {
+      console.error('Error updating salesman:', err);
+      alert('Gagal mengupdate salesman');
+      return false;
+    }
+  };
+
+  const handleDeleteSalesman = async (id: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_URL}/salesmen/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`
+        }
+      });
+
+      if (!response.ok) {
+        alert('Gagal menghapus salesman');
+        return false;
+      }
+
+      await loadData();
+      alert('Salesman berhasil dihapus');
+      return true;
+    } catch (err) {
+      console.error('Error deleting salesman:', err);
+      alert('Gagal menghapus salesman');
       return false;
     }
   };
@@ -307,6 +417,17 @@ export default function App() {
               Riwayat Penjualan
             </button>
             <button
+              onClick={() => setActiveTab('salesmen')}
+              className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors ${
+                activeTab === 'salesmen'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Users className="w-5 h-5" />
+              Daftar Salesman
+            </button>
+            <button
               onClick={handleLogout}
               className="flex items-center gap-2 px-6 py-4 border-b-2 transition-colors text-red-600 hover:text-red-700"
             >
@@ -320,13 +441,16 @@ export default function App() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         {activeTab === 'entry' && (
-          <SalesEntry products={products} onSaleSubmit={handleSaleSubmit} />
+          <SalesEntry products={products} salesmen={salesmen} onSaleSubmit={handleSaleSubmit} />
         )}
         {activeTab === 'products' && (
           <ProductList products={products} />
         )}
         {activeTab === 'history' && (
-          <SalesHistory sales={sales} />
+          <SalesHistory sales={sales} salesmen={salesmen} />
+        )}
+        {activeTab === 'salesmen' && (
+          <SalesmanList salesmen={salesmen} onAdd={handleAddSalesman} onUpdate={handleUpdateSalesman} onDelete={handleDeleteSalesman} />
         )}
       </main>
     </div>
