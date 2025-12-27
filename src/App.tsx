@@ -6,17 +6,13 @@ import { Login } from './components/Login';
 import { SalesmanList } from './components/SalesmanList';
 import { SalesEntryModal } from './components/SalesEntryModal';
 import { ManageUsers } from './components/ManageUsers';
+import { LocationManagement } from './components/LocationManagement';
+import { UserProfile } from './components/UserProfile';
+import { AddProductModal } from './components/AddProductModal';
 import type { Salesman } from './components/SalesmanList';
-import { LayoutDashboard, Package, ShoppingCart, Loader2, LogOut, Users, Shield } from 'lucide-react';
-import { projectId, publicAnonKey } from './utils/supabase/info';
-import { createClient } from '@supabase/supabase-js';
-
-const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-a0489752`;
-
-const supabase = createClient(
-  `https://${projectId}.supabase.co`,
-  publicAnonKey
-);
+import type { Location } from './components/AddProductModal';
+import { LayoutDashboard, Package, ShoppingCart, Loader2, LogOut, Users, Shield, MapPin, UserCircle } from 'lucide-react';
+import { supabase, API_URL, publicAnonKey } from './utils/supabase/client';
 
 export interface Product {
   id: string;
@@ -25,6 +21,7 @@ export interface Product {
   price: number;
   stock: number;
   unit: string;
+  locationId?: string;
 }
 
 export interface SaleItem {
@@ -58,16 +55,18 @@ const initialProducts: Product[] = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'sales' | 'products' | 'salesmen' | 'users'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'sales' | 'products' | 'salesmen' | 'users' | 'locations' | 'profile' | 'addProduct'>('dashboard');
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [sales, setSales] = useState<Sale[]>([]);
   const [salesmen, setSalesmen] = useState<Salesman[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<'admin' | 'user'>('user');
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [showSalesModal, setShowSalesModal] = useState(false);
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
 
   // Check for existing session
   useEffect(() => {
@@ -229,6 +228,26 @@ export default function App() {
         setSalesmen([]);
       }
 
+      // Load locations (optional - don't fail if it doesn't exist yet)
+      try {
+        const locationsRes = await fetch(`${API_URL}/locations`, {
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`
+          }
+        });
+        
+        if (locationsRes.ok) {
+          const locationsData = await locationsRes.json();
+          setLocations(locationsData.locations || []);
+        } else {
+          console.log('Locations endpoint not available yet');
+          setLocations([]);
+        }
+      } catch (locationsErr) {
+        console.log('Locations feature not available:', locationsErr);
+        setLocations([]);
+      }
+
     } catch (err) {
       console.error('Error loading data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -346,6 +365,190 @@ export default function App() {
     } catch (err) {
       console.error('Error deleting salesman:', err);
       alert('Gagal menghapus salesman');
+      return false;
+    }
+  };
+
+  // Product CRUD handlers
+  const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
+  
+  const handleAddProduct = async (productData: any): Promise<boolean> => {
+    try {
+      const newProduct = {
+        id: Date.now().toString(),
+        ...productData
+      };
+
+      const response = await fetch(`${API_URL}/products`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newProduct)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || 'Gagal menambah produk');
+        return false;
+      }
+
+      await loadData();
+      alert('Produk berhasil ditambahkan');
+      return true;
+    } catch (err) {
+      console.error('Error adding product:', err);
+      alert('Gagal menambah produk');
+      return false;
+    }
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setShowAddProductModal(true);
+  };
+
+  const handleUpdateProduct = async (productData: any): Promise<boolean> => {
+    if (!editingProduct) return false;
+    
+    try {
+      const response = await fetch(`${API_URL}/products/${editingProduct.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(productData)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || 'Gagal mengupdate produk');
+        return false;
+      }
+
+      await loadData();
+      setEditingProduct(undefined);
+      alert('Produk berhasil diupdate');
+      return true;
+    } catch (err) {
+      console.error('Error updating product:', err);
+      alert('Gagal mengupdate produk');
+      return false;
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus produk ini?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/products/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`
+        }
+      });
+
+      if (!response.ok) {
+        alert('Gagal menghapus produk');
+        return;
+      }
+
+      await loadData();
+      alert('Produk berhasil dihapus');
+    } catch (err) {
+      console.error('Error deleting product:', err);
+      alert('Gagal menghapus produk');
+    }
+  };
+
+  // Location CRUD handlers
+  const handleAddLocation = async (location: Omit<Location, 'id'>): Promise<boolean> => {
+    try {
+      const newLocation = {
+        id: Date.now().toString(),
+        ...location
+      };
+
+      const response = await fetch(`${API_URL}/locations`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newLocation)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || 'Gagal menambah lokasi');
+        return false;
+      }
+
+      await loadData();
+      alert('Lokasi berhasil ditambahkan');
+      return true;
+    } catch (err) {
+      console.error('Error adding location:', err);
+      alert('Gagal menambah lokasi');
+      return false;
+    }
+  };
+
+  const handleUpdateLocation = async (id: string, location: Omit<Location, 'id'>): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_URL}/locations/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(location)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || 'Gagal mengupdate lokasi');
+        return false;
+      }
+
+      await loadData();
+      alert('Lokasi berhasil diupdate');
+      return true;
+    } catch (err) {
+      console.error('Error updating location:', err);
+      alert('Gagal mengupdate lokasi');
+      return false;
+    }
+  };
+
+  const handleDeleteLocation = async (id: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_URL}/locations/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`
+        }
+      });
+
+      if (!response.ok) {
+        alert('Gagal menghapus lokasi');
+        return false;
+      }
+
+      await loadData();
+      alert('Lokasi berhasil dihapus');
+      return true;
+    } catch (err) {
+      console.error('Error deleting location:', err);
+      alert('Gagal menghapus lokasi');
       return false;
     }
   };
@@ -469,6 +672,39 @@ export default function App() {
                   <Shield className="w-5 h-5" />
                   Manajemen User
                 </button>
+                <button
+                  onClick={() => setActiveTab('locations')}
+                  className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors whitespace-nowrap ${
+                    activeTab === 'locations'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <MapPin className="w-5 h-5" />
+                  Manajemen Lokasi
+                </button>
+                <button
+                  onClick={() => setActiveTab('profile')}
+                  className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors whitespace-nowrap ${
+                    activeTab === 'profile'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <UserCircle className="w-5 h-5" />
+                  Profil Pengguna
+                </button>
+                <button
+                  onClick={() => setActiveTab('addProduct')}
+                  className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors whitespace-nowrap ${
+                    activeTab === 'addProduct'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <Package className="w-5 h-5" />
+                  Tambah Barang
+                </button>
               </>
             )}
             <button
@@ -495,7 +731,13 @@ export default function App() {
           />
         )}
         {activeTab === 'products' && (
-          <ProductList products={products} />
+          <ProductList 
+            products={products}
+            locations={locations}
+            onAddProduct={() => setShowAddProductModal(true)}
+            onEditProduct={handleEditProduct}
+            onDeleteProduct={handleDeleteProduct}
+          />
         )}
         {activeTab === 'salesmen' && userRole === 'admin' && (
           <SalesmanList 
@@ -508,6 +750,18 @@ export default function App() {
         {activeTab === 'users' && userRole === 'admin' && (
           <ManageUsers onUserUpdated={loadData} />
         )}
+        {activeTab === 'locations' && userRole === 'admin' && (
+          <LocationManagement onLocationUpdated={loadData} />
+        )}
+        {activeTab === 'profile' && (
+          <UserProfile user={user} />
+        )}
+        {activeTab === 'addProduct' && (
+          <AddProductModal
+            onProductAdded={loadData}
+            onClose={() => setActiveTab('products')}
+          />
+        )}
       </main>
 
       {/* Sales Entry Modal */}
@@ -517,6 +771,14 @@ export default function App() {
           salesmen={salesmen}
           onSaleSubmit={handleSaleSubmit}
           onClose={() => setShowSalesModal(false)}
+        />
+      )}
+
+      {/* Add Product Modal */}
+      {showAddProductModal && (
+        <AddProductModal
+          onProductAdded={loadData}
+          onClose={() => setShowAddProductModal(false)}
         />
       )}
     </div>

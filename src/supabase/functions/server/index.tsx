@@ -53,6 +53,8 @@ app.post("/make-server-a0489752/init-products", async (c) => {
   }
 });
 
+// ============ PRODUCT ENDPOINTS ============
+
 // Get all products
 app.get("/make-server-a0489752/products", async (c) => {
   try {
@@ -64,7 +66,85 @@ app.get("/make-server-a0489752/products", async (c) => {
   }
 });
 
-// Update product stock
+// Create product
+app.post("/make-server-a0489752/products", async (c) => {
+  try {
+    const product = await c.req.json();
+    
+    let products = await kv.get("products");
+    if (!products || !Array.isArray(products)) {
+      products = [];
+    }
+
+    // Check if code already exists
+    const existingCode = products.find((p: any) => p.code === product.code);
+    if (existingCode) {
+      return c.json({ error: "Kode produk sudah ada" }, 400);
+    }
+
+    products.push(product);
+    await kv.set("products", products);
+
+    return c.json({ message: "Product added successfully", product });
+  } catch (error) {
+    console.log(`Error adding product: ${error}`);
+    return c.json({ error: "Failed to add product", details: String(error) }, 500);
+  }
+});
+
+// Update product
+app.put("/make-server-a0489752/products/:id", async (c) => {
+  try {
+    const productId = c.req.param("id");
+    const updatedProduct = await c.req.json();
+
+    let products = await kv.get("products");
+    if (!products || !Array.isArray(products)) {
+      return c.json({ error: "Products not found" }, 404);
+    }
+
+    // Check if code already exists (excluding current product)
+    const existingCode = products.find((p: any) => p.code === updatedProduct.code && p.id !== productId);
+    if (existingCode) {
+      return c.json({ error: "Kode produk sudah ada" }, 400);
+    }
+
+    const updatedProducts = products.map((p: any) => {
+      if (p.id === productId) {
+        return { ...p, ...updatedProduct };
+      }
+      return p;
+    });
+
+    await kv.set("products", updatedProducts);
+    return c.json({ message: "Product updated successfully", products: updatedProducts });
+  } catch (error) {
+    console.log(`Error updating product: ${error}`);
+    return c.json({ error: "Failed to update product", details: String(error) }, 500);
+  }
+});
+
+// Delete product
+app.delete("/make-server-a0489752/products/:id", async (c) => {
+  try {
+    const productId = c.req.param("id");
+
+    let products = await kv.get("products");
+    if (!products || !Array.isArray(products)) {
+      return c.json({ error: "Products not found" }, 404);
+    }
+
+    const updatedProducts = products.filter((p: any) => p.id !== productId);
+    await kv.set("products", updatedProducts);
+
+    return c.json({ message: "Product deleted successfully", products: updatedProducts });
+  } catch (error) {
+    console.log(`Error deleting product: ${error}`);
+    return c.json({ error: "Failed to delete product", details: String(error) }, 500);
+  }
+});
+
+// Update product stock (Legacy/Specific endpoint)
 app.put("/make-server-a0489752/products/:id/stock", async (c) => {
   try {
     const productId = c.req.param("id");
@@ -89,6 +169,88 @@ app.put("/make-server-a0489752/products/:id/stock", async (c) => {
     return c.json({ error: "Failed to update stock", details: String(error) }, 500);
   }
 });
+
+// ============ LOCATION ENDPOINTS ============
+
+// Get all locations
+app.get("/make-server-a0489752/locations", async (c) => {
+  try {
+    const locations = await kv.get("locations");
+    return c.json({ locations: locations || [] });
+  } catch (error) {
+    console.log(`Error fetching locations: ${error}`);
+    return c.json({ error: "Failed to fetch locations", details: String(error) }, 500);
+  }
+});
+
+// Add a location
+app.post("/make-server-a0489752/locations", async (c) => {
+  try {
+    const location = await c.req.json();
+    
+    let locations = await kv.get("locations");
+    if (!locations || !Array.isArray(locations)) {
+      locations = [];
+    }
+
+    locations.push(location);
+    await kv.set("locations", locations);
+
+    return c.json({ message: "Location added successfully", location });
+  } catch (error) {
+    console.log(`Error adding location: ${error}`);
+    return c.json({ error: "Failed to add location", details: String(error) }, 500);
+  }
+});
+
+// Update a location
+app.put("/make-server-a0489752/locations/:id", async (c) => {
+  try {
+    const locationId = c.req.param("id");
+    const updatedLocation = await c.req.json();
+
+    let locations = await kv.get("locations");
+    if (!locations || !Array.isArray(locations)) {
+      return c.json({ error: "Locations not found" }, 404);
+    }
+
+    const updatedLocations = locations.map((l: any) => {
+      if (l.id === locationId) {
+        return { ...l, ...updatedLocation };
+      }
+      return l;
+    });
+
+    await kv.set("locations", updatedLocations);
+    return c.json({ message: "Location updated successfully", locations: updatedLocations });
+  } catch (error) {
+    console.log(`Error updating location: ${error}`);
+    return c.json({ error: "Failed to update location", details: String(error) }, 500);
+  }
+});
+
+// Delete a location
+app.delete("/make-server-a0489752/locations/:id", async (c) => {
+  try {
+    const locationId = c.req.param("id");
+
+    let locations = await kv.get("locations");
+    if (!locations || !Array.isArray(locations)) {
+      return c.json({ error: "Locations not found" }, 404);
+    }
+
+    const updatedLocations = locations.filter((l: any) => l.id !== locationId);
+    await kv.set("locations", updatedLocations);
+
+    return c.json({ message: "Location deleted successfully", locations: updatedLocations });
+  } catch (error) {
+    console.log(`Error deleting location: ${error}`);
+    return c.json({ error: "Failed to delete location", details: String(error) }, 500);
+  }
+});
+
+
+// ============ SALES ENDPOINTS ============
 
 // Save a sale
 app.post("/make-server-a0489752/sales", async (c) => {
