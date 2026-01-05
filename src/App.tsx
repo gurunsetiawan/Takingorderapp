@@ -7,12 +7,14 @@ import { SalesmanList } from './components/SalesmanList';
 import { SalesEntryModal } from './components/SalesEntryModal';
 import { ManageUsers } from './components/ManageUsers';
 import { LocationManagement } from './components/LocationManagement';
+import { CustomerManagement } from './components/CustomerManagement';
 import { UserProfile } from './components/UserProfile';
 import { AddProductModal } from './components/AddProductModal';
 import type { Salesman } from './components/SalesmanList';
 import type { Location } from './components/AddProductModal';
-import { LayoutDashboard, Package, ShoppingCart, Loader2, LogOut, Users, Shield, MapPin, UserCircle } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, Loader2, LogOut, Users, Shield, MapPin, UserCircle, Building2, Menu } from 'lucide-react';
 import { API_URL } from './utils/api';
+import { useIsMobile } from './components/ui/use-mobile';
 
 export interface Product {
   id: string;
@@ -37,10 +39,21 @@ export interface Sale {
   id: string;
   salesmanName: string;
   salesmanId: string;
+  customerId?: string;
   customerName: string;
   date: string;
   items: SaleItem[];
   totalAmount: number;
+}
+
+export interface Customer {
+  id: string;
+  code: string;
+  name: string;
+  phone: string;
+  address: string;
+  status: 'active' | 'inactive';
+  created_at?: string;
 }
 
 const initialProducts: Product[] = [
@@ -55,11 +68,12 @@ const initialProducts: Product[] = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'sales' | 'products' | 'salesmen' | 'users' | 'locations' | 'profile'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'sales' | 'products' | 'salesmen' | 'users' | 'locations' | 'customers' | 'profile'>('dashboard');
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [sales, setSales] = useState<Sale[]>([]);
   const [salesmen, setSalesmen] = useState<Salesman[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -68,6 +82,30 @@ export default function App() {
   const [showSalesModal, setShowSalesModal] = useState(false);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
+  const isMobile = useIsMobile();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarOpenMobile, setSidebarOpenMobile] = useState(false);
+
+  const canAccessTab = (tab: string) => {
+    if (userRole === 'admin') return true;
+    return ['dashboard', 'sales', 'products', 'profile'].includes(tab);
+  };
+
+  const toggleSidebar = () => {
+    if (isMobile) {
+      setSidebarOpenMobile((open) => !open);
+    } else {
+      setSidebarCollapsed((collapsed) => !collapsed);
+    }
+  };
+
+  const closeMobileSidebar = () => setSidebarOpenMobile(false);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setSidebarOpenMobile(false);
+    }
+  }, [isMobile]);
 
   const refreshMe = async (): Promise<boolean> => {
     if (!authToken) return false;
@@ -116,6 +154,13 @@ export default function App() {
       loadData();
     }
   }, [user, authToken]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (!canAccessTab(activeTab)) {
+      setActiveTab('dashboard');
+    }
+  }, [activeTab, userRole, user]);
 
   const handleLogin = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -304,6 +349,35 @@ export default function App() {
       } catch (locationsErr) {
         console.log('Locations feature not available:', locationsErr);
         setLocations([]);
+      }
+
+      // Load customers
+      try {
+        const customersRes = await fetch(`${API_URL}/customers`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (customersRes.ok) {
+          const customersData = await customersRes.json();
+          const normalizedCustomers = (customersData.customers || []).map((c: any) => ({
+            id: c.id,
+            code: c.code,
+            name: c.name,
+            phone: c.phone || '',
+            address: c.address || '',
+            status: c.status || 'active',
+            created_at: c.created_at
+          }));
+          setCustomers(normalizedCustomers);
+        } else {
+          console.log('Customers endpoint not available yet');
+          setCustomers([]);
+        }
+      } catch (customersErr) {
+        console.log('Customers feature not available:', customersErr);
+        setCustomers([]);
       }
 
     } catch (err) {
@@ -619,6 +693,88 @@ export default function App() {
     }
   };
 
+  // Customer CRUD handlers (admin only UI)
+  const handleAddCustomer = async (customer: Omit<Customer, 'id'>): Promise<boolean> => {
+    if (!authToken) return false;
+    try {
+      const response = await fetch(`${API_URL}/customers`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(customer)
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.error || 'Gagal menambah customer');
+        return false;
+      }
+
+      await loadData();
+      alert('Customer berhasil ditambahkan');
+      return true;
+    } catch (err) {
+      console.error('Error adding customer:', err);
+      alert('Gagal menambah customer');
+      return false;
+    }
+  };
+
+  const handleUpdateCustomer = async (id: string, customer: Omit<Customer, 'id'>): Promise<boolean> => {
+    if (!authToken) return false;
+    try {
+      const response = await fetch(`${API_URL}/customers/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(customer)
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.error || 'Gagal mengupdate customer');
+        return false;
+      }
+
+      await loadData();
+      alert('Customer berhasil diupdate');
+      return true;
+    } catch (err) {
+      console.error('Error updating customer:', err);
+      alert('Gagal mengupdate customer');
+      return false;
+    }
+  };
+
+  const handleDeleteCustomer = async (id: string): Promise<boolean> => {
+    if (!authToken) return false;
+    try {
+      const response = await fetch(`${API_URL}/customers/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+
+      if (!response.ok) {
+        alert('Gagal menghapus customer');
+        return false;
+      }
+
+      await loadData();
+      alert('Customer berhasil dihapus');
+      return true;
+    } catch (err) {
+      console.error('Error deleting customer:', err);
+      alert('Gagal menghapus customer');
+      return false;
+    }
+  };
+
   // Show login screen if not authenticated
   if (!user) {
     return <Login onLogin={handleLogin} onSignup={handleSignup} />;
@@ -653,195 +809,267 @@ export default function App() {
     );
   }
 
-  // Check if user can access the current tab
-  const canAccessTab = (tab: string) => {
-    if (userRole === 'admin') return true;
-    // User biasa hanya bisa akses dashboard, sales, dan products
-    return ['dashboard', 'sales', 'products', 'profile'].includes(tab);
+  const pageTitle =
+    activeTab === 'dashboard' ? 'Dashboard' :
+    activeTab === 'sales' ? 'Penjualan' :
+    activeTab === 'products' ? 'Daftar Produk' :
+    activeTab === 'salesmen' ? 'Daftar Salesman' :
+    activeTab === 'users' ? 'Manajemen User' :
+    activeTab === 'locations' ? 'Manajemen Lokasi' :
+    activeTab === 'customers' ? 'Customer' :
+    activeTab === 'profile' ? 'Profil Pengguna' :
+    'Taking Order System';
+
+  const showSidebarLabels = isMobile || !sidebarCollapsed;
+  const sidebarWidth = isMobile ? 260 : (sidebarCollapsed ? 56 : 240);
+
+  const goToTab = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    if (isMobile) closeMobileSidebar();
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-blue-600 text-white shadow-md">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50 flex">
+      {isMobile && sidebarOpenMobile && (
+        <div
+          onClick={closeMobileSidebar}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.4)',
+            zIndex: 10,
+          }}
+        />
+      )}
+
+      <aside
+        className="bg-white shadow-md"
+        style={{
+          position: isMobile ? 'fixed' : 'relative',
+          top: isMobile ? 0 : undefined,
+          bottom: isMobile ? 0 : undefined,
+          left: isMobile ? 0 : undefined,
+          width: sidebarWidth,
+          minHeight: isMobile ? undefined : '100vh',
+          transform: isMobile ? `translateX(${sidebarOpenMobile ? 0 : -sidebarWidth}px)` : undefined,
+          transition: isMobile ? 'transform 200ms ease' : 'width 200ms ease',
+          zIndex: isMobile ? 20 : undefined,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <div className="px-4 py-4 border-b flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+            <ShoppingCart className="w-5 h-5" />
+          </div>
+          {showSidebarLabels && (
             <div>
-              <h1 className="text-2xl">Taking Order System</h1>
-              <p className="text-blue-100 text-sm">Sistem Pencatatan Penjualan Salesman</p>
+              <p className="text-sm">Taking Order</p>
+              <p className="text-xs text-gray-500">Sales System</p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm">{user.name || user.email}</p>
-                <p className="text-xs text-blue-100">
-                  {userRole === 'admin' ? 'Administrator' : 'User'}
-                </p>
+          )}
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-2 py-3">
+          <button
+            onClick={() => goToTab('dashboard')}
+            className={`w-full flex items-center ${showSidebarLabels ? 'gap-3' : 'justify-center'} px-3 py-2 rounded-lg transition-colors ${
+              activeTab === 'dashboard' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            {showSidebarLabels && <span>Dashboard</span>}
+          </button>
+
+          <button
+            onClick={() => goToTab('sales')}
+            className={`w-full flex items-center ${showSidebarLabels ? 'gap-3' : 'justify-center'} px-3 py-2 rounded-lg transition-colors ${
+              activeTab === 'sales' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <ShoppingCart className="w-5 h-5" />
+            {showSidebarLabels && <span>Penjualan</span>}
+          </button>
+
+          <button
+            onClick={() => goToTab('products')}
+            className={`w-full flex items-center ${showSidebarLabels ? 'gap-3' : 'justify-center'} px-3 py-2 rounded-lg transition-colors ${
+              activeTab === 'products' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Package className="w-5 h-5" />
+            {showSidebarLabels && <span>Produk</span>}
+          </button>
+
+          {userRole === 'admin' && (
+            <>
+              <div className="border-t mt-4 mb-4" />
+
+              <button
+                onClick={() => goToTab('salesmen')}
+                className={`w-full flex items-center ${showSidebarLabels ? 'gap-3' : 'justify-center'} px-3 py-2 rounded-lg transition-colors ${
+                  activeTab === 'salesmen' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Users className="w-5 h-5" />
+                {showSidebarLabels && <span>Salesman</span>}
+              </button>
+
+              <button
+                onClick={() => goToTab('users')}
+                className={`w-full flex items-center ${showSidebarLabels ? 'gap-3' : 'justify-center'} px-3 py-2 rounded-lg transition-colors ${
+                  activeTab === 'users' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Shield className="w-5 h-5" />
+                {showSidebarLabels && <span>User</span>}
+              </button>
+
+              <button
+                onClick={() => goToTab('locations')}
+                className={`w-full flex items-center ${showSidebarLabels ? 'gap-3' : 'justify-center'} px-3 py-2 rounded-lg transition-colors ${
+                  activeTab === 'locations' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <MapPin className="w-5 h-5" />
+                {showSidebarLabels && <span>Lokasi</span>}
+              </button>
+
+              <button
+                onClick={() => goToTab('customers')}
+                className={`w-full flex items-center ${showSidebarLabels ? 'gap-3' : 'justify-center'} px-3 py-2 rounded-lg transition-colors ${
+                  activeTab === 'customers' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Building2 className="w-5 h-5" />
+                {showSidebarLabels && <span>Customer</span>}
+              </button>
+            </>
+          )}
+
+          <div className="border-t mt-4 mb-4" />
+
+          <button
+            onClick={() => goToTab('profile')}
+            className={`w-full flex items-center ${showSidebarLabels ? 'gap-3' : 'justify-center'} px-3 py-2 rounded-lg transition-colors ${
+              activeTab === 'profile' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <UserCircle className="w-5 h-5" />
+            {showSidebarLabels && <span>Profil</span>}
+          </button>
+        </div>
+
+        <div className="border-t px-2 py-3">
+          <button
+            onClick={() => {
+              handleLogout();
+              closeMobileSidebar();
+            }}
+            className={`w-full flex items-center ${showSidebarLabels ? 'gap-3' : 'justify-center'} px-3 py-2 rounded-lg transition-colors text-red-600 hover:bg-red-50`}
+          >
+            <LogOut className="w-5 h-5" />
+            {showSidebarLabels && <span>Logout</span>}
+          </button>
+        </div>
+      </aside>
+
+      <div className="flex-1">
+        <header className="bg-white border-b shadow-sm sticky top-0 z-10">
+          <div className="px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleSidebar}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="Toggle sidebar"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              <div>
+                <p className="text-sm text-gray-900">{pageTitle}</p>
+                <p className="text-xs text-gray-500">Sistem Pencatatan Penjualan Salesman</p>
               </div>
             </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-900">{user.name || user.email}</p>
+              <p className="text-xs text-gray-500">{userRole === 'admin' ? 'Administrator' : 'User'}</p>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Navigation Tabs */}
-      <div className="bg-white border-b shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4">
-          <div className="flex gap-1 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'dashboard'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <LayoutDashboard className="w-5 h-5" />
-              Dashboard
-            </button>
-            <button
-              onClick={() => setActiveTab('sales')}
-              className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'sales'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <ShoppingCart className="w-5 h-5" />
-              Penjualan
-            </button>
-            <button
-              onClick={() => setActiveTab('products')}
-              className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'products'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Package className="w-5 h-5" />
-              Daftar Barang
-            </button>
-            {userRole === 'admin' && (
-              <>
-                <button
-                  onClick={() => setActiveTab('salesmen')}
-                  className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors whitespace-nowrap ${
-                    activeTab === 'salesmen'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <Users className="w-5 h-5" />
-                  Daftar Salesman
-                </button>
-                <button
-                  onClick={() => setActiveTab('users')}
-                  className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors whitespace-nowrap ${
-                    activeTab === 'users'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <Shield className="w-5 h-5" />
-                  Manajemen User
-                </button>
-                <button
-                  onClick={() => setActiveTab('locations')}
-                  className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors whitespace-nowrap ${
-                    activeTab === 'locations'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <MapPin className="w-5 h-5" />
-                  Manajemen Lokasi
-                </button>
-              </>
+        <main className="px-4 py-6">
+          <div className="mx-auto w-full max-w-6xl">
+            {activeTab === 'dashboard' && (
+              <Dashboard sales={sales} products={products} salesmen={salesmen} />
             )}
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'profile'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <UserCircle className="w-5 h-5" />
-              Profil Pengguna
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-6 py-4 border-b-2 transition-colors text-red-600 hover:text-red-700 whitespace-nowrap ml-auto"
-            >
-              <LogOut className="w-5 h-5" />
-              Logout
-            </button>
+            {activeTab === 'sales' && (
+              <SalesHistory 
+                sales={sales} 
+                salesmen={salesmen}
+                onAddSale={() => setShowSalesModal(true)}
+              />
+            )}
+            {activeTab === 'products' && (
+              <ProductList 
+                products={products}
+                locations={locations}
+                onAddProduct={() => setShowAddProductModal(true)}
+                onEditProduct={handleEditProduct}
+                onDeleteProduct={handleDeleteProduct}
+              />
+            )}
+            {activeTab === 'salesmen' && userRole === 'admin' && (
+              <SalesmanList 
+                salesmen={salesmen} 
+                onAdd={handleAddSalesman} 
+                onUpdate={handleUpdateSalesman} 
+                onDelete={handleDeleteSalesman} 
+              />
+            )}
+            {activeTab === 'users' && userRole === 'admin' && (
+              <ManageUsers onUserUpdated={loadData} authToken={authToken} />
+            )}
+            {activeTab === 'locations' && userRole === 'admin' && (
+              <LocationManagement 
+                locations={locations}
+                onAdd={handleAddLocation}
+                onUpdate={handleUpdateLocation}
+                onDelete={handleDeleteLocation}
+              />
+            )}
+            {activeTab === 'customers' && userRole === 'admin' && (
+              <CustomerManagement
+                customers={customers}
+                onAdd={handleAddCustomer}
+                onUpdate={handleUpdateCustomer}
+                onDelete={handleDeleteCustomer}
+              />
+            )}
+            {activeTab === 'profile' && (
+              <UserProfile user={user} userRole={userRole} authToken={authToken} onUpdate={refreshMe} />
+            )}
           </div>
-        </div>
-      </div>
+        </main>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
-        {activeTab === 'dashboard' && (
-          <Dashboard sales={sales} products={products} salesmen={salesmen} />
-        )}
-        {activeTab === 'sales' && (
-          <SalesHistory 
-            sales={sales} 
-            salesmen={salesmen}
-            onAddSale={() => setShowSalesModal(true)}
-          />
-        )}
-        {activeTab === 'products' && (
-          <ProductList 
+        {showSalesModal && (
+          <SalesEntryModal
             products={products}
-            locations={locations}
-            onAddProduct={() => setShowAddProductModal(true)}
-            onEditProduct={handleEditProduct}
-            onDeleteProduct={handleDeleteProduct}
+            salesmen={salesmen}
+            customers={customers}
+            onSaleSubmit={handleSaleSubmit}
+            onClose={() => setShowSalesModal(false)}
           />
         )}
-        {activeTab === 'salesmen' && userRole === 'admin' && (
-          <SalesmanList 
-            salesmen={salesmen} 
-            onAdd={handleAddSalesman} 
-            onUpdate={handleUpdateSalesman} 
-            onDelete={handleDeleteSalesman} 
-          />
-        )}
-        {activeTab === 'users' && userRole === 'admin' && (
-          <ManageUsers onUserUpdated={loadData} authToken={authToken} />
-        )}
-        {activeTab === 'locations' && userRole === 'admin' && (
-          <LocationManagement 
-            locations={locations}
-            onAdd={handleAddLocation}
-            onUpdate={handleUpdateLocation}
-            onDelete={handleDeleteLocation}
-          />
-        )}
-        {activeTab === 'profile' && (
-          <UserProfile user={user} userRole={userRole} authToken={authToken} onUpdate={refreshMe} />
-        )}
-      </main>
 
-      {/* Sales Entry Modal */}
-      {showSalesModal && (
-        <SalesEntryModal
-          products={products}
-          salesmen={salesmen}
-          onSaleSubmit={handleSaleSubmit}
-          onClose={() => setShowSalesModal(false)}
-        />
-      )}
-
-      {/* Add Product Modal */}
-      {showAddProductModal && (
-        <AddProductModal
-          onSubmit={editingProduct ? handleUpdateProduct : handleAddProduct}
-          editProduct={editingProduct}
-          locations={locations}
-          onClose={() => setShowAddProductModal(false)}
-        />
-      )}
+        {showAddProductModal && (
+          <AddProductModal
+            onSubmit={editingProduct ? handleUpdateProduct : handleAddProduct}
+            editProduct={editingProduct}
+            locations={locations}
+            onClose={() => setShowAddProductModal(false)}
+          />
+        )}
+      </div>
     </div>
   );
 }

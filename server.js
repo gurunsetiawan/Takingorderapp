@@ -33,6 +33,10 @@ function isValidRole(role) {
   return role === 'admin' || role === 'user';
 }
 
+function isValidStatus(status) {
+  return status === 'active' || status === 'inactive';
+}
+
 function toNonNegativeInt(value) {
   const numberValue = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(numberValue)) return null;
@@ -173,19 +177,52 @@ async function ensureSchema() {
         name TEXT NOT NULL,
         code TEXT NOT NULL UNIQUE,
         phone TEXT,
+        area TEXT NOT NULL DEFAULT '',
         status TEXT
       );
     `);
+    await client.query("ALTER TABLE salesmen ADD COLUMN IF NOT EXISTS area TEXT NOT NULL DEFAULT '';");
+    await client.query("UPDATE salesmen SET area = '' WHERE area IS NULL;");
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS customers (
+        id TEXT PRIMARY KEY,
+        code TEXT UNIQUE,
+        name TEXT NOT NULL,
+        phone TEXT,
+        address TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    await client.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT \'active\';');
+    await client.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();');
+    await client.query('CREATE INDEX IF NOT EXISTS customers_name_idx ON customers(name);');
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS sales (
         id TEXT PRIMARY KEY,
         salesman_name TEXT NOT NULL,
         salesman_id TEXT,
+        customer_id TEXT,
         customer_name TEXT NOT NULL,
         date TIMESTAMPTZ NOT NULL,
         total_amount NUMERIC NOT NULL
       );
     `);
+    await client.query('ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_id TEXT;');
+    await client.query(`
+      DO $$
+      BEGIN
+        ALTER TABLE sales
+          ADD CONSTRAINT sales_customer_id_fkey
+          FOREIGN KEY (customer_id) REFERENCES customers(id)
+          ON DELETE SET NULL;
+      EXCEPTION WHEN duplicate_object THEN
+        NULL;
+      END $$;
+    `);
+    await client.query('CREATE INDEX IF NOT EXISTS sales_customer_id_idx ON sales(customer_id);');
     await client.query(`
       CREATE TABLE IF NOT EXISTS sale_items (
         id SERIAL PRIMARY KEY,
@@ -583,7 +620,7 @@ app.delete('/locations/:id', authMiddleware, requireAdmin, async (req, res) => {
 
 app.get('/salesmen', authMiddleware, async (_req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM salesmen ORDER BY name ASC;');
+    const { rows } = await pool.query('SELECT id, name, code, phone, area, status FROM salesmen ORDER BY name ASC;');
     res.json({ salesmen: rows });
   } catch (error) {
     console.error('Get salesmen error:', error);
@@ -595,13 +632,15 @@ app.post('/salesmen', authMiddleware, requireAdmin, async (req, res) => {
   const name = normalizeString(req.body?.name);
   const code = normalizeString(req.body?.code).toUpperCase();
   const phone = normalizeString(req.body?.phone);
+  const area = normalizeString(req.body?.area);
   const status = normalizeString(req.body?.status) || 'active';
-  if (!name || !code) return res.status(400).json({ error: 'Nama dan kode salesman wajib diisi' });
+  if (!name || !code || !phone || !area) return res.status(400).json({ error: 'Data salesman belum lengkap' });
+  if (!isValidStatus(status)) return res.status(400).json({ error: 'Status tidak valid' });
   try {
     const id = crypto.randomUUID();
     await pool.query(
-      'INSERT INTO salesmen (id, name, code, phone, status) VALUES ($1, $2, $3, $4, $5);',
-      [id, name, code, phone || '', status || 'active']
+      'INSERT INTO salesmen (id, name, code, phone, area, status) VALUES ($1, $2, $3, $4, $5, $6);',
+      [id, name, code, phone || '', area || '', status || 'active']
     );
     res.json({ message: 'Salesman added', id });
   } catch (error) {
@@ -616,13 +655,15 @@ app.put('/salesmen/:id', authMiddleware, requireAdmin, async (req, res) => {
   const name = normalizeString(req.body?.name);
   const code = normalizeString(req.body?.code).toUpperCase();
   const phone = normalizeString(req.body?.phone);
+  const area = normalizeString(req.body?.area);
   const status = normalizeString(req.body?.status) || 'active';
   if (!id) return res.status(400).json({ error: 'Invalid salesman id' });
-  if (!name || !code) return res.status(400).json({ error: 'Nama dan kode salesman wajib diisi' });
+  if (!name || !code || !phone || !area) return res.status(400).json({ error: 'Data salesman belum lengkap' });
+  if (!isValidStatus(status)) return res.status(400).json({ error: 'Status tidak valid' });
   try {
     await pool.query(
-      'UPDATE salesmen SET name=$1, code=$2, phone=$3, status=$4 WHERE id=$5;',
-      [name, code, phone || '', status || 'active', id]
+      'UPDATE salesmen SET name=$1, code=$2, phone=$3, area=$4, status=$5 WHERE id=$6;',
+      [name, code, phone || '', area || '', status || 'active', id]
     );
     res.json({ message: 'Salesman updated' });
   } catch (error) {
@@ -644,17 +685,99 @@ app.delete('/salesmen/:id', authMiddleware, requireAdmin, async (req, res) => {
   }
 });
 
+app.get('/customers', authMiddleware, async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT id, code, name, phone, address, status, created_at FROM customers ORDER BY name ASC;'
+    );
+    res.json({ customers: rows });
+  } catch (error) {
+    console.error('Get customers error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/customers', authMiddleware, requireAdmin, async (req, res) => {
+  const code = normalizeString(req.body?.code).toUpperCase();
+  const name = normalizeString(req.body?.name);
+  const phone = normalizeString(req.body?.phone);
+  const address = normalizeString(req.body?.address);
+  const status = normalizeString(req.body?.status) || 'active';
+  if (!code || !name) return res.status(400).json({ error: 'Kode dan nama customer wajib diisi' });
+  if (!isValidStatus(status)) return res.status(400).json({ error: 'Status tidak valid' });
+
+  try {
+    const id = crypto.randomUUID();
+    await pool.query(
+      'INSERT INTO customers (id, code, name, phone, address, status) VALUES ($1, $2, $3, $4, $5, $6);',
+      [id, code, name, phone || '', address || '', status]
+    );
+    res.json({ message: 'Customer added', id });
+  } catch (error) {
+    if (error.code === '23505') return res.status(400).json({ error: 'Kode customer sudah ada' });
+    console.error('Add customer error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/customers/:id', authMiddleware, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const code = normalizeString(req.body?.code).toUpperCase();
+  const name = normalizeString(req.body?.name);
+  const phone = normalizeString(req.body?.phone);
+  const address = normalizeString(req.body?.address);
+  const status = normalizeString(req.body?.status) || 'active';
+  if (!id) return res.status(400).json({ error: 'Invalid customer id' });
+  if (!code || !name) return res.status(400).json({ error: 'Kode dan nama customer wajib diisi' });
+  if (!isValidStatus(status)) return res.status(400).json({ error: 'Status tidak valid' });
+
+  try {
+    await pool.query(
+      'UPDATE customers SET code=$1, name=$2, phone=$3, address=$4, status=$5 WHERE id=$6;',
+      [code, name, phone || '', address || '', status, id]
+    );
+    res.json({ message: 'Customer updated' });
+  } catch (error) {
+    if (error.code === '23505') return res.status(400).json({ error: 'Kode customer sudah ada' });
+    console.error('Update customer error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.delete('/customers/:id', authMiddleware, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: 'Invalid customer id' });
+  try {
+    await pool.query('DELETE FROM customers WHERE id = $1;', [id]);
+    res.json({ message: 'Customer deleted' });
+  } catch (error) {
+    console.error('Delete customer error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.post('/sales', authMiddleware, async (req, res) => {
   const salesmanName = normalizeString(req.body?.salesmanName);
   const salesmanId = normalizeString(req.body?.salesmanId);
-  const customerName = normalizeString(req.body?.customerName);
+  const customerId = normalizeString(req.body?.customerId);
+  let customerName = normalizeString(req.body?.customerName);
   const items = Array.isArray(req.body?.items) ? req.body.items : null;
-  if (!salesmanName || !customerName || !items || !Array.isArray(items) || items.length === 0) {
+  if (!salesmanName || !items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Data penjualan tidak lengkap' });
   }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    let resolvedCustomerId = null;
+    if (customerId) {
+      const { rows: customerRows } = await client.query('SELECT id, name FROM customers WHERE id = $1;', [customerId]);
+      if (customerRows.length === 0) throw new Error('Customer tidak ditemukan');
+      resolvedCustomerId = customerRows[0].id;
+      customerName = customerRows[0].name;
+    }
+    if (!customerName) throw new Error('Nama customer wajib diisi');
+
     const saleId = crypto.randomUUID();
     let totalAmount = 0;
     const normalizedItems = [];
@@ -689,8 +812,8 @@ app.post('/sales', authMiddleware, async (req, res) => {
       await client.query('UPDATE products SET stock = stock - $1 WHERE id = $2;', [quantity, productId]);
     }
     await client.query(
-      'INSERT INTO sales (id, salesman_name, salesman_id, customer_name, date, total_amount) VALUES ($1, $2, $3, $4, NOW(), $5);',
-      [saleId, salesmanName, salesmanId || '', customerName, totalAmount]
+      'INSERT INTO sales (id, salesman_name, salesman_id, customer_id, customer_name, date, total_amount) VALUES ($1, $2, $3, $4, $5, NOW(), $6);',
+      [saleId, salesmanName, salesmanId || '', resolvedCustomerId, customerName, totalAmount]
     );
     for (const item of normalizedItems) {
       await client.query(
@@ -716,6 +839,7 @@ app.get('/sales', authMiddleware, async (_req, res) => {
         s.id,
         s.salesman_name AS "salesmanName",
         s.salesman_id AS "salesmanId",
+        s.customer_id AS "customerId",
         s.customer_name AS "customerName",
         s.date,
         s.total_amount::float8 AS "totalAmount",

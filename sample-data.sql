@@ -43,17 +43,40 @@ CREATE TABLE IF NOT EXISTS salesmen (
   name TEXT NOT NULL,
   code TEXT NOT NULL UNIQUE,
   phone TEXT,
+  area TEXT NOT NULL DEFAULT '',
   status TEXT
+);
+ALTER TABLE salesmen ADD COLUMN IF NOT EXISTS area TEXT NOT NULL DEFAULT '';
+
+CREATE TABLE IF NOT EXISTS customers (
+  id TEXT PRIMARY KEY,
+  code TEXT UNIQUE,
+  name TEXT NOT NULL,
+  phone TEXT,
+  address TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS sales (
   id TEXT PRIMARY KEY,
   salesman_name TEXT NOT NULL,
   salesman_id TEXT,
+  customer_id TEXT REFERENCES customers(id) ON DELETE SET NULL,
   customer_name TEXT NOT NULL,
   date TIMESTAMPTZ NOT NULL,
   total_amount NUMERIC NOT NULL
 );
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_id TEXT;
+DO $$
+BEGIN
+  ALTER TABLE sales
+    ADD CONSTRAINT sales_customer_id_fkey
+    FOREIGN KEY (customer_id) REFERENCES customers(id)
+    ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN
+  NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS sale_items (
   id SERIAL PRIMARY KEY,
@@ -97,15 +120,21 @@ INSERT INTO products (id, name, code, price, stock, unit, location_id) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Salesman
-INSERT INTO salesmen (id, name, code, phone, status) VALUES
-  ('sm-001', 'Budi Santoso', 'SM001', '081234567890', 'active'),
-  ('sm-002', 'Agus Pratama', 'SM002', '081298765432', 'active')
+INSERT INTO salesmen (id, name, code, phone, area, status) VALUES
+  ('sm-001', 'Budi Santoso', 'SM001', '081234567890', 'Jakarta Selatan', 'active'),
+  ('sm-002', 'Agus Pratama', 'SM002', '081298765432', 'Jakarta Barat', 'active')
+ON CONFLICT (id) DO NOTHING;
+
+-- Customer
+INSERT INTO customers (id, code, name, phone, address, status) VALUES
+  ('cust-001', 'CUST001', 'PT Sinar Jaya', '021-5550001', 'Jl. Sudirman No. 1', 'active'),
+  ('cust-002', 'CUST002', 'CV Makmur', '021-5550002', 'Jl. Gatot Subroto No. 10', 'active')
 ON CONFLICT (id) DO NOTHING;
 
 -- Penjualan + item
-INSERT INTO sales (id, salesman_name, salesman_id, customer_name, date, total_amount) VALUES
-  ('sale-001', 'Budi Santoso', 'sm-001', 'PT Sinar Jaya', NOW() - INTERVAL '2 day', 120000),
-  ('sale-002', 'Agus Pratama', 'sm-002', 'CV Makmur', NOW() - INTERVAL '1 day', 85000)
+INSERT INTO sales (id, salesman_name, salesman_id, customer_id, customer_name, date, total_amount) VALUES
+  ('sale-001', 'Budi Santoso', 'sm-001', 'cust-001', 'PT Sinar Jaya', NOW() - INTERVAL '2 day', 120000),
+  ('sale-002', 'Agus Pratama', 'sm-002', 'cust-002', 'CV Makmur', NOW() - INTERVAL '1 day', 85000)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO sale_items (sale_id, product_id, product_name, product_code, quantity, price, total) VALUES

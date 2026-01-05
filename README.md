@@ -15,6 +15,11 @@ Run `npm run dev` to start the development server.
 - Jalankan API: `npm run server` (default `http://127.0.0.1:3001`).
 - Frontend pakai `VITE_API_URL` (default `http://127.0.0.1:3001`), jadi kalau server di port lain set di `.env`.
 
+### Customer
+
+- Halaman `Customer` ada di tab admin untuk CRUD master customer.
+- Saat entry penjualan, customer bisa dipilih dari daftar (autocomplete) atau diketik manual.
+
 ### Seed admin (opsional, untuk lokal)
 
 Kalau tabel `app_users` masih kosong dan kamu butuh akun admin awal, set:

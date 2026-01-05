@@ -1,18 +1,20 @@
 import { useState } from 'react';
-import { Product, Sale, SaleItem } from '../App';
+import { Product, Sale, SaleItem, Customer } from '../App';
 import { Plus, Trash2, Save, Loader2, X } from 'lucide-react';
 import type { Salesman } from './SalesmanList';
 
 interface SalesEntryModalProps {
   products: Product[];
   salesmen: Salesman[];
+  customers: Customer[];
   onSaleSubmit: (sale: Sale) => Promise<boolean>;
   onClose: () => void;
 }
 
-export function SalesEntryModal({ products, salesmen, onSaleSubmit, onClose }: SalesEntryModalProps) {
+export function SalesEntryModal({ products, salesmen, customers, onSaleSubmit, onClose }: SalesEntryModalProps) {
   const [salesmanName, setSalesmanName] = useState('');
   const [salesmanId, setSalesmanId] = useState('');
+  const [customerId, setCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -20,6 +22,8 @@ export function SalesEntryModal({ products, salesmen, onSaleSubmit, onClose }: S
   const [saving, setSaving] = useState(false);
   const [salesmanSearch, setSalesmanSearch] = useState('');
   const [showSalesmanDropdown, setShowSalesmanDropdown] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
 
   // Filter active salesmen
   const activeSalesmen = salesmen.filter(s => s.status === 'active');
@@ -35,6 +39,19 @@ export function SalesEntryModal({ products, salesmen, onSaleSubmit, onClose }: S
     setSalesmanId(salesman.id);
     setSalesmanSearch(salesman.name);
     setShowSalesmanDropdown(false);
+  };
+
+  const activeCustomers = customers.filter((c) => c.status === 'active');
+  const filteredCustomers = activeCustomers.filter((c) => {
+    const q = customerSearch.toLowerCase();
+    return c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q);
+  });
+
+  const handleCustomerSelect = (customer: Customer) => {
+    setCustomerId(customer.id);
+    setCustomerName(customer.name);
+    setCustomerSearch(customer.name);
+    setShowCustomerDropdown(false);
   };
 
   const handleAddItem = () => {
@@ -107,6 +124,7 @@ export function SalesEntryModal({ products, salesmen, onSaleSubmit, onClose }: S
       id: Date.now().toString(),
       salesmanName,
       salesmanId,
+      customerId: customerId || undefined,
       customerName,
       date: new Date().toISOString(),
       items,
@@ -151,6 +169,7 @@ export function SalesEntryModal({ products, salesmen, onSaleSubmit, onClose }: S
                   onChange={(e) => {
                     setSalesmanSearch(e.target.value);
                     setSalesmanName(e.target.value);
+                    setSalesmanId('');
                   }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder={activeSalesmen.length > 0 ? "Pilih atau ketik nama salesman" : "Masukkan nama salesman"}
@@ -174,13 +193,37 @@ export function SalesEntryModal({ products, salesmen, onSaleSubmit, onClose }: S
             </div>
             <div>
               <label className="block text-gray-700 mb-2">Nama Customer *</label>
-              <input
-                type="text"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Masukkan nama customer"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={customerSearch}
+                  onChange={(e) => {
+                    setCustomerSearch(e.target.value);
+                    setCustomerName(e.target.value);
+                    setCustomerId('');
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder={activeCustomers.length > 0 ? 'Pilih atau ketik nama customer' : 'Masukkan nama customer'}
+                  onFocus={() => activeCustomers.length > 0 && setShowCustomerDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 200)}
+                />
+                {showCustomerDropdown && filteredCustomers.length > 0 && (
+                  <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-b-lg shadow-md max-h-40 overflow-y-auto">
+                    {filteredCustomers.map((customer) => (
+                      <div
+                        key={customer.id}
+                        className="px-4 py-2 cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleCustomerSelect(customer)}
+                      >
+                        {customer.code} - {customer.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {customerId && (
+                  <p className="text-xs text-gray-500 mt-1">Dipilih dari master customer</p>
+                )}
+              </div>
             </div>
           </div>
 
