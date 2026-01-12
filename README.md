@@ -42,8 +42,4 @@ Kalau tabel `app_users` masih kosong dan kamu butuh akun admin awal, set:
 
 Lalu start ulang `npm run server`.
 
-## Seed data demo (SQL)
-
-- `sample-data.sql`: contoh seed default.
-- `seed-toko-besi.sql`: contoh seed untuk toko besi (paku, bendrat, besi, dll).
   
