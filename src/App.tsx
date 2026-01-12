@@ -13,8 +13,9 @@ import { AddProductModal } from './components/AddProductModal';
 import type { Salesman } from './components/SalesmanList';
 import type { Location } from './components/AddProductModal';
 import { LayoutDashboard, Package, ShoppingCart, Loader2, LogOut, Users, Shield, MapPin, UserCircle, Building2, Menu, ChevronDown } from 'lucide-react';
-import { API_URL } from './utils/api';
+import { API_URL, IS_DEMO } from './utils/api';
 import { useIsMobile } from './components/ui/use-mobile';
+import { resetDemoData } from './demo/mockApi';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -107,6 +108,7 @@ export default function App() {
   };
 
   const closeMobileSidebar = () => setSidebarOpenMobile(false);
+  const showDemoReset = IS_DEMO && userRole === 'admin';
 
   useEffect(() => {
     if (!isMobile) {
@@ -1016,6 +1018,18 @@ export default function App() {
                   <UserCircle className="w-4 h-4" />
                   Profil
                 </DropdownMenuItem>
+                {showDemoReset && (
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      if (!confirm('Reset data demo? Semua data akan kembali ke seed awal.')) return;
+                      resetDemoData();
+                      window.location.reload();
+                    }}
+                  >
+                    <Package className="w-4 h-4" />
+                    Reset Demo Data
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   variant="destructive"

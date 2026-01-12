@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { LogIn, UserPlus, Loader2 } from 'lucide-react';
+import { IS_DEMO } from '../utils/api';
+import { DEMO_ADMIN } from '../demo/seed-tokobesi';
 
 interface LoginProps {
   onLogin: (email: string, password: string) => Promise<boolean>;
@@ -141,6 +143,16 @@ export function Login({ onLogin, onSignup }: LoginProps) {
             <p>
               <strong>Catatan:</strong> Password minimal 6 karakter
             </p>
+          </div>
+        )}
+
+        {IS_DEMO && !isSignup && (
+          <div className="mt-4 p-3 bg-amber-50 rounded-lg text-sm text-gray-700">
+            <p className="mb-1">
+              <strong>Demo login:</strong>
+            </p>
+            <p>Email: <code className="font-mono">{DEMO_ADMIN.email}</code></p>
+            <p>Password: <code className="font-mono">{DEMO_ADMIN.password}</code></p>
           </div>
         )}
       </div>

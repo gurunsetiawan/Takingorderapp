@@ -9,6 +9,14 @@ Run `npm i` to install the dependencies.
 
 Run `npm run dev` to start the development server.
 
+## Demo tanpa database (client-only)
+
+Mode demo ini tidak butuh Postgres/`server.js`: data disimpan di browser (`localStorage`) sehingga tetap ada setelah refresh, dan bisa di-reset.
+
+- Jalankan demo lokal: `VITE_BACKEND=mock npm run dev`
+- Login demo (admin): `admin@tokobesi.local` / `besi12345`
+- Reset data demo: menu user → `Reset Demo Data`
+
 ## Tests
 
 - Run unit tests (frontend Vitest + API Supertest): `npm test`
