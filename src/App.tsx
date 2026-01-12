@@ -114,8 +114,8 @@ export default function App() {
     }
   }, [isMobile]);
 
-  const refreshMe = async (): Promise<boolean> => {
-    if (!authToken) return false;
+  const refreshMe = async (): Promise<void> => {
+    if (!authToken) return;
     try {
       const res = await fetch(`${API_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${authToken}` }
@@ -124,16 +124,16 @@ export default function App() {
         const data = await res.json();
         setUser(data.user);
         setUserRole(data.user.role || 'user');
-        return true;
+        return;
       }
       localStorage.removeItem('orderapp_token');
       setAuthToken(null);
       setUser(null);
       setUserRole('user');
-      return false;
+      return;
     } catch (error) {
       console.error('Error checking session:', error);
-      return false;
+      return;
     }
   };
 

@@ -285,10 +285,12 @@ async function ensureSchema() {
   }
 }
 
-ensureSchema().catch((err) => {
-  console.error('Failed to ensure schema', err);
-  process.exit(1);
-});
+async function startServer() {
+  await ensureSchema();
+  return app.listen(PORT, () => {
+    console.log(`API server listening on http://127.0.0.1:${PORT}`);
+  });
+}
 
 async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization || '';
@@ -953,6 +955,11 @@ app.delete('/users/:id', authMiddleware, requireAdmin, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`API server listening on http://127.0.0.1:${PORT}`);
-});
+if (require.main === module) {
+  startServer().catch((err) => {
+    console.error('Failed to start server', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { app, startServer };

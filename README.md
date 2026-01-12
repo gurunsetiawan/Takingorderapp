@@ -9,6 +9,11 @@ Run `npm i` to install the dependencies.
 
 Run `npm run dev` to start the development server.
 
+## Tests
+
+- Run unit tests (frontend Vitest + API Supertest): `npm test`
+- Watch mode: `npm run test:watch`
+
 ## API server (Express + Postgres)
 
 - Copy `.env.example` to `.env` and set `DB_*` sesuai Postgres kamu.
