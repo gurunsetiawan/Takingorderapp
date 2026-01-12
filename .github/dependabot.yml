@@ -1,19 +1,12 @@
 version: 2
-registries:
-  jsr:
-    type: npm-registry
-    url: https://npm.jsr.io
-
 updates:
   - package-ecosystem: npm
-    directory: /
+    directory: "/"
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
-    registries:
-      - jsr
 
   - package-ecosystem: github-actions
-    directory: /
+    directory: "/"
     schedule:
       interval: weekly
