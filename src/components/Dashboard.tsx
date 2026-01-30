@@ -1,5 +1,4 @@
-import { Sale } from '../App';
-import { Product } from '../App';
+import { Sale, Product } from '../types';
 import type { Salesman } from './SalesmanList';
 import { TrendingUp, DollarSign, Package, Users, ShoppingCart } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -131,7 +130,7 @@ export function Dashboard({ sales, products, salesmen }: DashboardProps) {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis />
-              <Tooltip 
+              <Tooltip
                 formatter={(value: number) => `Rp ${value.toLocaleString('id-ID')}`}
               />
               <Legend />
@@ -185,8 +184,8 @@ export function Dashboard({ sales, products, salesmen }: DashboardProps) {
                   </tr>
                 ) : (
                   topSalesmen.map((salesman, index) => (
-                    <tr 
-                      key={salesman.id} 
+                    <tr
+                      key={salesman.id}
                       className={index % 2 === 0 ? 'bg-blue-50' : 'bg-white'}
                     >
                       <td className="px-4 py-3 text-sm text-gray-700">{index + 1}</td>
@@ -238,7 +237,7 @@ export function Dashboard({ sales, products, salesmen }: DashboardProps) {
                   </tr>
                 ) : (
                   topProducts.map((product, index) => (
-                    <tr 
+                    <tr
                       key={product.id}
                       className={index % 2 === 0 ? 'bg-green-50' : 'bg-white'}
                     >

@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Product, Sale, SaleItem, Customer } from '../App';
+import { Product, Sale, SaleItem, Customer, Salesman } from '../types';
 import { Plus, Trash2, Save, Loader2, X } from 'lucide-react';
-import type { Salesman } from './SalesmanList';
 
 interface SalesEntryModalProps {
   products: Product[];
@@ -71,16 +70,16 @@ export function SalesEntryModal({ products, salesmen, customers, onSaleSubmit, o
 
     // Check if product already in items
     const existingItemIndex = items.findIndex(item => item.productId === selectedProductId);
-    
+
     if (existingItemIndex >= 0) {
       const updatedItems = [...items];
       const newQty = updatedItems[existingItemIndex].quantity + qty;
-      
+
       if (newQty > product.stock) {
         alert(`Stok tidak cukup. Stok tersedia: ${product.stock} ${product.unit}`);
         return;
       }
-      
+
       updatedItems[existingItemIndex].quantity = newQty;
       updatedItems[existingItemIndex].total = newQty * product.price;
       setItems(updatedItems);
@@ -119,7 +118,7 @@ export function SalesEntryModal({ products, salesmen, customers, onSaleSubmit, o
     }
 
     const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
-    
+
     const sale: Sale = {
       id: Date.now().toString(),
       salesmanName,
@@ -279,7 +278,7 @@ export function SalesEntryModal({ products, salesmen, customers, onSaleSubmit, o
                   </thead>
                   <tbody>
                     {items.map((item, index) => (
-                      <tr 
+                      <tr
                         key={index}
                         className={index % 2 === 0 ? 'bg-blue-50' : 'bg-white'}
                       >

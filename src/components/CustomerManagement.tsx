@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus, Edit2, Trash2, X, Save, Loader2, Building2 } from 'lucide-react';
 
-import type { Customer } from '../App';
+import type { Customer } from '../types';
 
 interface CustomerManagementProps {
   customers: Customer[];
