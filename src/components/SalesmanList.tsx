@@ -1,14 +1,7 @@
 import { useState } from 'react';
 import { Users, Plus, Edit2, Trash2, X, Save, Loader2 } from 'lucide-react';
 
-export interface Salesman {
-  id: string;
-  code: string;
-  name: string;
-  phone: string;
-  area: string;
-  status: 'active' | 'inactive';
-}
+import { Salesman } from '../types';
 
 interface SalesmanListProps {
   salesmen: Salesman[];
@@ -143,7 +136,7 @@ export function SalesmanList({ salesmen, onAdd, onUpdate, onDelete }: SalesmanLi
                 </tr>
               ) : (
                 filteredSalesmen.map((salesman, index) => (
-                  <tr 
+                  <tr
                     key={salesman.id}
                     className={index % 2 === 0 ? 'bg-blue-50' : 'bg-white'}
                   >
@@ -188,8 +181,8 @@ export function SalesmanList({ salesmen, onAdd, onUpdate, onDelete }: SalesmanLi
 
         <div className="mt-6 p-4 bg-blue-50 rounded-lg">
           <p className="text-gray-700 text-sm">
-            Total Salesman: <strong>{salesmen.length}</strong> | 
-            Aktif: <strong>{salesmen.filter(s => s.status === 'active').length}</strong> | 
+            Total Salesman: <strong>{salesmen.length}</strong> |
+            Aktif: <strong>{salesmen.filter(s => s.status === 'active').length}</strong> |
             Nonaktif: <strong>{salesmen.filter(s => s.status === 'inactive').length}</strong>
           </p>
         </div>

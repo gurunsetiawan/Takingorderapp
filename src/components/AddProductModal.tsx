@@ -1,22 +1,17 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Loader2 } from 'lucide-react';
 
-export interface Location {
-  id: string;
-  name: string;
-  code: string;
-  address: string;
-  type: 'warehouse' | 'store';
-}
+import { Location } from '../types';
 
 interface AddProductModalProps {
+  isOpen: boolean;
   onClose: () => void;
   onSubmit: (product: any) => Promise<boolean>;
   locations: Location[];
   editProduct?: any;
 }
 
-export function AddProductModal({ onClose, onSubmit, locations, editProduct }: AddProductModalProps) {
+export function AddProductModal({ isOpen, onClose, onSubmit, locations, editProduct }: AddProductModalProps) {
   const [formData, setFormData] = useState({
     code: '',
     name: '',
@@ -39,6 +34,8 @@ export function AddProductModal({ onClose, onSubmit, locations, editProduct }: A
       });
     }
   }, [editProduct]);
+
+  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

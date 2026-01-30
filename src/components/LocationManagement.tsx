@@ -1,13 +1,7 @@
 import { useState } from 'react';
 import { MapPin, Plus, Edit2, Trash2, X, Save, Loader2, Warehouse, Store } from 'lucide-react';
 
-export interface Location {
-  id: string;
-  code: string;
-  name: string;
-  address: string;
-  type: 'warehouse' | 'store';
-}
+import { Location } from '../types';
 
 interface LocationManagementProps {
   locations: Location[];
@@ -138,7 +132,7 @@ export function LocationManagement({ locations, onAdd, onUpdate, onDelete }: Loc
                 </tr>
               ) : (
                 filteredLocations.map((location, index) => (
-                  <tr 
+                  <tr
                     key={location.id}
                     className={index % 2 === 0 ? 'bg-purple-50' : 'bg-white'}
                   >
@@ -184,8 +178,8 @@ export function LocationManagement({ locations, onAdd, onUpdate, onDelete }: Loc
 
         <div className="mt-6 p-4 bg-blue-50 rounded-lg">
           <p className="text-gray-700 text-sm">
-            Total Lokasi: <strong>{locations.length}</strong> | 
-            Gudang: <strong>{locations.filter(l => l.type === 'warehouse').length}</strong> | 
+            Total Lokasi: <strong>{locations.length}</strong> |
+            Gudang: <strong>{locations.filter(l => l.type === 'warehouse').length}</strong> |
             Toko: <strong>{locations.filter(l => l.type === 'store').length}</strong>
           </p>
         </div>

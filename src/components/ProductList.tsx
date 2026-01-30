@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Product } from '../App';
-import { Package, AlertCircle, Plus, Edit2, Trash2, Search, Filter, ArrowUpDown } from 'lucide-react';
-import type { Location } from './AddProductModal';
+import { Product, Location } from '../types';
+import { Package, AlertCircle, Plus, Edit2, Trash2, Search, ArrowUpDown } from 'lucide-react';
+
 
 interface ProductListProps {
   products: Product[];
   locations: Location[];
+  userRole: 'admin' | 'user';
   onAddProduct: () => void;
   onEditProduct: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
@@ -26,13 +27,13 @@ export function ProductList({ products, locations, onAddProduct, onEditProduct, 
 
   // Filter products
   let filteredProducts = products.filter(p => {
-    const matchSearch = 
+    const matchSearch =
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.code.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchLocation = !filterLocation || p.locationId === filterLocation;
-    
-    const matchStatus = 
+
+    const matchStatus =
       filterStatus === 'all' ||
       (filterStatus === 'available' && p.stock > 0) ||
       (filterStatus === 'low' && p.stock > 0 && p.stock < 100) ||
@@ -44,7 +45,7 @@ export function ProductList({ products, locations, onAddProduct, onEditProduct, 
   // Sort products
   filteredProducts.sort((a, b) => {
     let comparison = 0;
-    
+
     if (sortBy === 'name') {
       comparison = a.name.localeCompare(b.name);
     } else if (sortBy === 'price') {
@@ -146,7 +147,7 @@ export function ProductList({ products, locations, onAddProduct, onEditProduct, 
               <tr className="border-b-2 border-gray-200">
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">NO</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">KODE</th>
-                <th 
+                <th
                   className="px-4 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-50"
                   onClick={() => handleSort('name')}
                 >
@@ -155,7 +156,7 @@ export function ProductList({ products, locations, onAddProduct, onEditProduct, 
                     <ArrowUpDown className="w-4 h-4" />
                   </div>
                 </th>
-                <th 
+                <th
                   className="px-4 py-3 text-right text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-50"
                   onClick={() => handleSort('price')}
                 >
@@ -164,7 +165,7 @@ export function ProductList({ products, locations, onAddProduct, onEditProduct, 
                     <ArrowUpDown className="w-4 h-4" />
                   </div>
                 </th>
-                <th 
+                <th
                   className="px-4 py-3 text-right text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-50"
                   onClick={() => handleSort('stock')}
                 >
@@ -182,14 +183,14 @@ export function ProductList({ products, locations, onAddProduct, onEditProduct, 
               {filteredProducts.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                    {searchTerm || filterLocation || filterStatus !== 'all' 
-                      ? 'Tidak ada produk yang sesuai filter' 
+                    {searchTerm || filterLocation || filterStatus !== 'all'
+                      ? 'Tidak ada produk yang sesuai filter'
                       : 'Belum ada data produk'}
                   </td>
                 </tr>
               ) : (
                 filteredProducts.map((product, index) => (
-                  <tr 
+                  <tr
                     key={product.id}
                     className={index % 2 === 0 ? 'bg-green-50' : 'bg-white'}
                   >
@@ -245,9 +246,9 @@ export function ProductList({ products, locations, onAddProduct, onEditProduct, 
 
         <div className="mt-6 p-4 bg-blue-50 rounded-lg">
           <p className="text-gray-700 text-sm">
-            Total Produk: <strong>{products.length}</strong> | 
-            Ditampilkan: <strong>{filteredProducts.length}</strong> | 
-            Stok Rendah: <strong>{lowStockProducts.length}</strong> | 
+            Total Produk: <strong>{products.length}</strong> |
+            Ditampilkan: <strong>{filteredProducts.length}</strong> |
+            Stok Rendah: <strong>{lowStockProducts.length}</strong> |
             Total Nilai Stok: <strong>Rp {products.reduce((sum, p) => sum + (p.price * p.stock), 0).toLocaleString('id-ID')}</strong>
           </p>
         </div>

@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { Sale } from '../App';
+import { Sale, Salesman } from '../types';
 import { ChevronDown, ChevronUp, Calendar, User, DollarSign, Plus } from 'lucide-react';
 
 interface SalesHistoryProps {
   sales: Sale[];
-  salesmen: Array<{ id: string; name: string }>;
-  onAddSale: () => void;
+  salesmen?: Salesman[];
+  onAddSale?: () => void;
 }
 
-export function SalesHistory({ sales, salesmen, onAddSale }: SalesHistoryProps) {
+export function SalesHistory({ sales, salesmen = [], onAddSale }: SalesHistoryProps) {
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -58,7 +58,7 @@ export function SalesHistory({ sales, salesmen, onAddSale }: SalesHistoryProps) 
   });
 
   const totalRevenue = filteredSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-  const totalItems = filteredSales.reduce((sum, sale) => 
+  const totalItems = filteredSales.reduce((sum, sale) =>
     sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0
   );
 
@@ -215,7 +215,7 @@ export function SalesHistory({ sales, salesmen, onAddSale }: SalesHistoryProps) 
                         </thead>
                         <tbody>
                           {sale.items.map((item, index) => (
-                            <tr 
+                            <tr
                               key={index}
                               className={index % 2 === 0 ? 'bg-green-50' : 'bg-white'}
                             >

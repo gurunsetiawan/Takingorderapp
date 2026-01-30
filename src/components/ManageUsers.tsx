@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Users, Plus, Edit2, Trash2, X, Save, Loader2, Shield, User } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Edit2, Trash2, X, Save, Loader2, Shield, User } from 'lucide-react';
 import { API_URL } from '../utils/api';
 
 export interface AppUser {
@@ -29,11 +29,7 @@ export function ManageUsers({ onUserUpdated, authToken }: ManageUsersProps) {
   });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadUsers();
-  }, [authToken]);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     if (!authToken) return;
     try {
       setLoading(true);
@@ -52,7 +48,11 @@ export function ManageUsers({ onUserUpdated, authToken }: ManageUsersProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authToken]);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,7 +233,7 @@ export function ManageUsers({ onUserUpdated, authToken }: ManageUsersProps) {
                 </tr>
               ) : (
                 filteredUsers.map((user, index) => (
-                  <tr 
+                  <tr
                     key={user.id}
                     className={index % 2 === 0 ? 'bg-blue-50' : 'bg-white'}
                   >
@@ -277,8 +277,8 @@ export function ManageUsers({ onUserUpdated, authToken }: ManageUsersProps) {
 
         <div className="mt-6 p-4 bg-blue-50 rounded-lg">
           <p className="text-gray-700 text-sm">
-            Total User: <strong>{users.length}</strong> | 
-            Admin: <strong>{users.filter(u => u.role === 'admin').length}</strong> | 
+            Total User: <strong>{users.length}</strong> |
+            Admin: <strong>{users.filter(u => u.role === 'admin').length}</strong> |
             User Biasa: <strong>{users.filter(u => u.role === 'user').length}</strong>
           </p>
         </div>
