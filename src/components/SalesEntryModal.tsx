@@ -17,6 +17,7 @@ export function SalesEntryModal({ products, salesmen, customers, onSaleSubmit, o
   const [customerName, setCustomerName] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [price, setPrice] = useState('');
   const [items, setItems] = useState<SaleItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [salesmanSearch, setSalesmanSearch] = useState('');
@@ -59,6 +60,12 @@ export function SalesEntryModal({ products, salesmen, customers, onSaleSubmit, o
       return;
     }
 
+    const itemPrice = parseFloat(price.replace(/[^0-9.-]+/g, ''));
+    if (isNaN(itemPrice) || itemPrice < 0) {
+      alert('Masukkan harga yang valid');
+      return;
+    }
+
     const product = products.find(p => p.id === selectedProductId);
     if (!product) return;
 
@@ -81,7 +88,8 @@ export function SalesEntryModal({ products, salesmen, customers, onSaleSubmit, o
       }
 
       updatedItems[existingItemIndex].quantity = newQty;
-      updatedItems[existingItemIndex].total = newQty * product.price;
+      updatedItems[existingItemIndex].price = itemPrice;
+      updatedItems[existingItemIndex].total = newQty * itemPrice;
       setItems(updatedItems);
     } else {
       const newItem: SaleItem = {
@@ -89,14 +97,15 @@ export function SalesEntryModal({ products, salesmen, customers, onSaleSubmit, o
         productName: product.name,
         productCode: product.code,
         quantity: qty,
-        price: product.price,
-        total: qty * product.price
+        price: itemPrice,
+        total: qty * itemPrice
       };
       setItems([...items, newItem]);
     }
 
     setSelectedProductId('');
     setQuantity('');
+    setPrice('');
   };
 
   const handleRemoveItem = (index: number) => {
@@ -229,34 +238,59 @@ export function SalesEntryModal({ products, salesmen, customers, onSaleSubmit, o
           {/* Add Item Section */}
           <div className="border-t pt-6 mb-6">
             <h3 className="mb-4">Tambah Item</h3>
-            <div className="flex gap-3">
-              <select
-                value={selectedProductId}
-                onChange={(e) => setSelectedProductId(e.target.value)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Pilih Produk</option>
-                {products.map(product => (
-                  <option key={product.id} value={product.id}>
-                    {product.code} - {product.name} (Stok: {product.stock} {product.unit}) - Rp {product.price.toLocaleString('id-ID')}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="w-32 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Jumlah"
-                min="1"
-              />
-              <button
-                onClick={handleAddItem}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Tambah
-              </button>
+            <div className="grid grid-cols-2 md:grid-cols-12 gap-3 items-end">
+              <div className="col-span-2 md:col-span-5">
+                <select
+                  value={selectedProductId}
+                  onChange={(e) => {
+                    const pid = e.target.value;
+                    setSelectedProductId(pid);
+                    const p = products.find((prod) => prod.id === pid);
+                    if (p) {
+                      setPrice(p.price.toString());
+                    } else {
+                      setPrice('');
+                    }
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Pilih Produk</option>
+                  {products.map(product => (
+                    <option key={product.id} value={product.id}>
+                      {product.code} - {product.name} (Stok: {product.stock} {product.unit}) - Rp {product.price.toLocaleString('id-ID')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-span-1 md:col-span-3">
+                <input
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Harga"
+                  min="0"
+                />
+              </div>
+              <div className="col-span-1 md:col-span-2">
+                <input
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Jumlah"
+                  min="1"
+                />
+              </div>
+              <div className="col-span-2 md:col-span-2">
+                <button
+                  onClick={handleAddItem}
+                  className="w-full px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Tambah
+                </button>
+              </div>
             </div>
           </div>
 

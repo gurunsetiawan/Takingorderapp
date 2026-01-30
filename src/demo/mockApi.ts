@@ -437,7 +437,10 @@ export function installMockApi() {
         if (!product) return jsonResponse({ error: `Produk ${productId} tidak ditemukan` }, 400);
         if (product.stock < quantity) return jsonResponse({ error: `Stok produk ${product.code} tidak mencukupi` }, 400);
 
-        const price = Number(product.price) || 0;
+        let price = Number(item.price);
+        if (!Number.isFinite(price) || price < 0) {
+          price = Number(product.price) || 0;
+        }
         const total = price * quantity;
         totalAmount += total;
         product.stock -= quantity;
